@@ -2,7 +2,7 @@ module Chess.Move
   ( Move(..)
   , MoveType(..)
   , executeMove
-  , isLegalMove
+  -- Remove isLegalMove from exports
   ) where
 
 import Chess.Board
@@ -19,10 +19,10 @@ data Move = Move
   { moveFrom :: Position   -- ^ Source position
   , moveTo :: Position     -- ^ Target position
   , moveType :: MoveType   -- ^ Type of move (derived)
-  } deriving (Show, Eq)
+  } deriving (Eq)  -- Remove Show from deriving clause
 
 -- | Custom Show instance for Move
-instance {-# OVERLAPPING #-} Show Move where
+instance Show Move where
   show (Move from to _) =
     let fileToChar f = ['a'..'h'] !! f
         rankToChar r = ['1'..'8'] !! r
@@ -63,10 +63,5 @@ executeMove (Move from to moveType) board =
           promotedPiece = Piece (pieceColor piece) newType
       in setPiece to promotedPiece $ Map.delete from board
 
--- | Check if a move is legal
-isLegalMove :: Move -> GameState -> Bool
-isLegalMove _ _ = True  -- Placeholder - implementation in Chess.Rules
-
--- | Check if a position is attacked by a specific color
-isAttacked :: Board -> Position -> Color -> Bool
-isAttacked _ _ _ = False  -- Placeholder - implementation in Chess.Rules
+-- Remove the isLegalMove and isAttacked functions from this module
+-- They are implemented in Chess.Rules

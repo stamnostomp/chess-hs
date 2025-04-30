@@ -1,7 +1,8 @@
 module Chess.UI.Terminal (run) where
 
 import Control.Monad (when)
-import System.Console.ANSI
+import System.Console.ANSI hiding (White, Black) -- Hide ANSI colors to avoid conflict
+import qualified System.Console.ANSI as ANSI
 import System.IO
 import Data.Char (toLower, isDigit)
 import Data.Maybe (isJust, fromMaybe)
@@ -11,7 +12,7 @@ import Chess.Board
 import Chess.Game
 import Chess.GameState
 import Chess.Move
-import Chess.Pieces
+import Chess.Pieces -- This defines our White and Black for piece colors
 import Chess.Rules (isLegalMove)
 
 -- | Run the terminal UI
@@ -107,13 +108,13 @@ showBoardWithColors board =
   where
     colorSquare pos piece =
       let squareColor = if (fst pos + snd pos) `mod` 2 == 0
-                        then SetBackgroundColor Dull Black
-                        else SetBackgroundColor Dull White
+                        then SetBackgroundColor Dull ANSI.Black
+                        else SetBackgroundColor Dull ANSI.White
           pieceColor = case piece of
                          Just p -> if pieceColor p == White
-                                   then SetColor Foreground Vivid Blue
-                                   else SetColor Foreground Vivid Red
-                         Nothing -> SetColor Foreground Dull Black
+                                   then SetColor Foreground Vivid ANSI.Blue
+                                   else SetColor Foreground Vivid ANSI.Red
+                         Nothing -> SetColor Foreground Dull ANSI.Black
           pieceChar = case piece of
                         Just p -> showPiece p
                         Nothing -> " "
