@@ -1,5 +1,5 @@
 {
-  description = "chess-hs: A chess game in Haskell with GTK interface";
+  description = "chess-hs: A chess game in Haskell with GTK and terminal interfaces";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -26,35 +26,43 @@
           glib
           cairo
           pango
+          gobject-introspection
         ];
 
-        # Customizing the Haskell package set
-        myHaskellPackages = pkgs.haskellPackages.override {
-          overrides = hself: hsuper: {
-            # Make chess-hs depend on our system dependencies
-            chess-hs = hlib.compose.overrideCabal (drv: {
-              librarySystemDepends = (drv.librarySystemDepends or [ ]) ++ gtkDeps;
-              libraryPkgconfigDepends = (drv.libraryPkgconfigDepends or [ ]) ++ gtkDeps;
-              executableSystemDepends = (drv.executableSystemDepends or [ ]) ++ gtkDeps;
-              executablePkgconfigDepends = (drv.executablePkgconfigDepends or [ ]) ++ gtkDeps;
-              testSystemDepends = (drv.testSystemDepends or [ ]) ++ gtkDeps;
-              testPkgconfigDepends = (drv.testPkgconfigDepends or [ ]) ++ gtkDeps;
-            }) (hsuper.callCabal2nix "chess-hs" ./. { });
-          };
-        };
+        # Create a modified version of the Haskell packages
+        myHaskellPackages = pkgs.haskellPackages.extend (
+          self: super: {
+            # Define a terminal-only version
+            chess-hs-terminal = self.callCabal2nix "chess-hs" ./. {
+              # Add flag to disable GTK
+              configureFlags = [ "--flag=-enable-gtk" ];
+            };
+
+            # Define full version with explicit dependencies
+            chess-hs-full = hlib.addBuildDepends (self.callCabal2nix "chess-hs" ./. { }) [
+              self.haskell-gi-base
+              self.gi-gtk
+              self.gi-gdk
+              self.gi-cairo
+              self.gi-pango
+              self.gi-cairo-render
+            ];
+          }
+        );
       in
       {
         packages = {
-          default = myHaskellPackages.chess-hs;
-          chess-hs = myHaskellPackages.chess-hs;
+          default = myHaskellPackages.chess-hs-full;
+          full = myHaskellPackages.chess-hs-full;
+          terminal = myHaskellPackages.chess-hs-terminal;
         };
 
-        # Dev environment for building the project
+        # Dev environment for building the project (full GTK version)
         devShells.default = pkgs.mkShell {
           # Packages needed for development
           buildInputs = with pkgs; [
             # Core dev tools
-            myHaskellPackages.ghc
+            ghc
             cabal-install
             pkg-config
 
@@ -68,17 +76,64 @@
             cairo.dev
             pango
             pango.dev
+
+            # Haskell packages for GTK
+            haskellPackages.haskell-gi-base
+            haskellPackages.gi-gtk
+            haskellPackages.gi-gdk
+            haskellPackages.gi-cairo
+            haskellPackages.gi-pango
+            haskellPackages.gi-cairo-render
           ];
 
           # Environment variables for GTK development
           shellHook = ''
+            # Set library paths for GTK
             export PKG_CONFIG_PATH="${pkgs.lib.makeSearchPath "lib/pkgconfig" gtkDeps}:$PKG_CONFIG_PATH"
             export GI_TYPELIB_PATH="${pkgs.lib.makeSearchPath "lib/girepository-1.0" gtkDeps}:$GI_TYPELIB_PATH"
             export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath gtkDeps}:$LD_LIBRARY_PATH"
             export XDG_DATA_DIRS="${pkgs.gsettings-desktop-schemas}/share:${pkgs.gtk3}/share:$XDG_DATA_DIRS"
 
+            # Create cabal.project.local with direct dependency references
+            cat > cabal.project.local <<EOF
+            package chess-hs
+              flags: +enable-gtk
+            EOF
+
             echo "Haskell Chess GTK Development Environment"
-            echo "Remember to use 'cabal build' inside this shell"
+            echo "----------------------------------------"
+            echo "Build full version:     nix build .#full"
+            echo "Build terminal version: nix build .#terminal"
+            echo "Run after building:     ./result/bin/chess-hs [--gtk]"
+            echo ""
+            echo "For development:"
+            echo "  cabal build"
+            echo "  cabal run -- [--gtk]"
+          '';
+        };
+
+        # Terminal-only development environment
+        devShells.terminal = pkgs.mkShell {
+          buildInputs = with pkgs; [
+            ghc
+            cabal-install
+          ];
+
+          shellHook = ''
+            # Create cabal.project.local without GTK
+            cat > cabal.project.local <<EOF
+            package chess-hs
+              flags: -enable-gtk
+            EOF
+
+            echo "Haskell Chess Terminal-Only Development Environment"
+            echo "---------------------------------------------------"
+            echo "Build with:    nix build .#terminal"
+            echo "Run after building: ./result/bin/chess-hs"
+            echo ""
+            echo "For development:"
+            echo "  cabal build"
+            echo "  cabal run"
           '';
         };
       }

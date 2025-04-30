@@ -8,7 +8,7 @@ module Chess.UI.Common
 
 import Data.Char (toLower, toUpper, isDigit)
 import Chess.Board
-import Chess.Game
+import Chess.GameState
 import Chess.Move
 import Chess.Pieces
 
@@ -36,7 +36,7 @@ formatMove (Move from to _) =
 parseMove :: String -> Maybe Move
 parseMove [f1, r1, f2, r2] =
   case (parsePosition [f1, r1], parsePosition [f2, r2]) of
-    (Just from, Just to) -> Just (Move from to)
+    (Just from, Just to) -> Just (Move from to Normal)
     _ -> Nothing
 parseMove _ = Nothing
 

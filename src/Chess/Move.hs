@@ -8,6 +8,7 @@ module Chess.Move
 import Chess.Board
 import Chess.Pieces
 import Data.Maybe (isJust, fromMaybe)
+import qualified Data.Map as Map
 
 -- | Type of special moves
 data MoveType = Normal | Capture | Castle | EnPassant | Promotion PieceType
@@ -20,7 +21,7 @@ data Move = Move
   , moveType :: MoveType   -- ^ Type of move (derived)
   } deriving (Show, Eq)
 
--- | Constructor for a move with default type
+-- | Custom Show instance for Move
 instance {-# OVERLAPPING #-} Show Move where
   show (Move from to _) =
     let fileToChar f = ['a'..'h'] !! f
@@ -28,9 +29,9 @@ instance {-# OVERLAPPING #-} Show Move where
     in [fileToChar (fst from), rankToChar (snd from),
         fileToChar (fst to), rankToChar (snd to)]
 
--- | Constructor for a simple move
-Move :: Position -> Position -> Move
-Move from to = Move from to Normal
+-- | Constructor for a simple move with Normal type
+move :: Position -> Position -> Move
+move from to = Move from to Normal
 
 -- | Execute a move on a board
 executeMove :: Move -> Board -> Board
@@ -51,17 +52,21 @@ executeMove (Move from to moveType) board =
 
     EnPassant ->
       let capturedPawnPos = (fst to, snd from)
-      in movePiece from to $ setPiece capturedPawnPos undefined board
+          pieceAtCapture = getPiece capturedPawnPos board
+      in movePiece from to $
+         case pieceAtCapture of
+           Just _ -> Map.delete capturedPawnPos board
+           Nothing -> board
 
     Promotion newType ->
       let piece = fromMaybe (error "No piece at source position") (getPiece from board)
           promotedPiece = Piece (pieceColor piece) newType
-      in setPiece to promotedPiece $ setPiece from undefined board
+      in setPiece to promotedPiece $ Map.delete from board
 
 -- | Check if a move is legal
 isLegalMove :: Move -> GameState -> Bool
-isLegalMove _ _ = True  -- Placeholder - to be implemented in Chess.Rules
+isLegalMove _ _ = True  -- Placeholder - implementation in Chess.Rules
 
 -- | Check if a position is attacked by a specific color
 isAttacked :: Board -> Position -> Color -> Bool
-isAttacked _ _ _ = False  -- Placeholder - to be implemented in Chess.Rules
+isAttacked _ _ _ = False  -- Placeholder - implementation in Chess.Rules

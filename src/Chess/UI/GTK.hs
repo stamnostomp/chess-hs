@@ -13,8 +13,10 @@ import qualified GI.Pango as Pango
 
 import Chess.Board
 import Chess.Game
+import Chess.GameState
 import Chess.Move
 import Chess.Pieces
+import Chess.Rules (isLegalMove)
 
 -- | Run the GTK UI
 run :: IO ()
@@ -23,7 +25,7 @@ run = do
 
   -- Create window
   window <- Gtk.windowNew Gtk.WindowTypeToplevel
-  Gtk.windowSetTitle window "Chess"
+  Gtk.windowSetTitle window (pack "Chess")
   Gtk.windowSetDefaultSize window 400 400
   Gtk.windowSetPosition window Gtk.WindowPositionCenter
 
@@ -46,9 +48,8 @@ run = do
   Gtk.addEvents drawingArea [Gdk.EventMaskButtonPressMask]
   Gtk.onWidgetButtonPressEvent drawingArea $ \event -> do
     -- Get click position
-    (x, y) <- Gdk.getEventButtonX event >>= \x' ->
-              Gdk.getEventButtonY event >>= \y' ->
-              return (x', y')
+    x <- Gdk.getEventButtonX event
+    y <- Gdk.getEventButtonY event
 
     -- Convert to board coordinates
     let boardPos = pixelToBoard (x, y)
@@ -72,7 +73,7 @@ run = do
           if fromPos == boardPos
             then writeIORef selectedPos Nothing  -- Deselect
             else do
-              let move = Move fromPos boardPos
+              let move = Move fromPos boardPos Normal
               if isLegalMove move game
                 then do
                   let newGame = makeMove move game
@@ -111,10 +112,6 @@ pixelToBoard (x, y) =
 -- | Render the chess board
 renderBoard :: Gtk.DrawingContext -> Board -> Maybe Position -> IO ()
 renderBoard context board selected = do
-  let width = 400
-      height = 400
-      squareSize = 50
-
   Cairo.renderWithContext context $ do
     -- Draw the squares
     forM_ [0..7] $ \rank -> do
@@ -128,17 +125,17 @@ renderBoard context board selected = do
                          else (0.5, 0.3, 0.1)
 
         setSourceRGB (fst3 color) (snd3 color) (thd3 color)
-        rectangle (fromIntegral $ file * squareSize)
-                  (fromIntegral $ (7 - rank) * squareSize)
-                  (fromIntegral squareSize)
-                  (fromIntegral squareSize)
+        rectangle (fromIntegral $ file * 50)
+                  (fromIntegral $ (7 - rank) * 50)
+                  (fromIntegral 50)
+                  (fromIntegral 50)
         fill
 
     -- Draw the pieces
     forM_ (Map.toList board) $ \((file, rank), piece) -> do
-      let x = fromIntegral $ file * squareSize + squareSize `div` 2
-          y = fromIntegral $ (7 - rank) * squareSize + squareSize `div` 2
-          pieceText = pack $ showPiece piece
+      let x = fromIntegral $ file * 50 + 25
+          y = fromIntegral $ (7 - rank) * 50 + 25
+          pieceText = showPiece piece
 
       Cairo.save
       Cairo.translate x y
@@ -148,10 +145,10 @@ renderBoard context board selected = do
         White -> setSourceRGB 1.0 1.0 1.0
         Black -> setSourceRGB 0.0 0.0 0.0
 
-      -- Draw piece using Pango
+      -- Draw piece using Cairo
       Cairo.moveTo (-15) 15
       Cairo.setFontSize 32
-      Cairo.showText pieceText
+      Cairo.showText (pack pieceText)
 
       Cairo.restore
 

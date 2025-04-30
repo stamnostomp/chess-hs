@@ -5,11 +5,14 @@ import System.Console.ANSI
 import System.IO
 import Data.Char (toLower, isDigit)
 import Data.Maybe (isJust, fromMaybe)
+import qualified Data.Map as Map
 
 import Chess.Board
 import Chess.Game
+import Chess.GameState
 import Chess.Move
 import Chess.Pieces
+import Chess.Rules (isLegalMove)
 
 -- | Run the terminal UI
 run :: IO ()
@@ -70,7 +73,7 @@ displayGame game = do
   -- Show move history
   when (not (null (gameMoves game))) $ do
     putStrLn "\nMove history:"
-    mapM_ (putStr . (++ " ")) (map showMove (reverse (gameMoves game)))
+    mapM_ (putStr . (++ " ")) (map show (reverse (gameMoves game)))
     putStrLn ""
 
 -- | Parse a move from string input (e.g., "e2e4")
@@ -82,7 +85,7 @@ parseMove [src1, src2, dst1, dst2]
           dstFile = charToFile dst1
           dstRank = charToRank dst2
       in if isValidPosition (srcFile, srcRank) && isValidPosition (dstFile, dstRank)
-         then Just (Move (srcFile, srcRank) (dstFile, dstRank))
+         then Just (Move (srcFile, srcRank) (dstFile, dstRank) Normal)
          else Nothing
   where
     isValidChar c = c `elem` "abcdefgh"
@@ -90,14 +93,6 @@ parseMove [src1, src2, dst1, dst2]
     charToFile c = fromEnum (toLower c) - fromEnum 'a'
     charToRank c = read [c] - 1
 parseMove _ = Nothing
-
--- | Convert a move to a string
-showMove :: Move -> String
-showMove (Move (srcFile, srcRank) (dstFile, dstRank)) =
-  [fileToChar srcFile, rankToChar srcRank, fileToChar dstFile, rankToChar dstRank]
-  where
-    fileToChar f = toEnum (f + fromEnum 'a')
-    rankToChar r = toEnum (r + 1 + fromEnum '0')
 
 -- | Show the board with ANSI colors
 showBoardWithColors :: Board -> String
@@ -112,14 +107,14 @@ showBoardWithColors board =
   where
     colorSquare pos piece =
       let squareColor = if (fst pos + snd pos) `mod` 2 == 0
-                        then SetBackgroundColor White
-                        else SetBackgroundColor Black
+                        then SetBackgroundColor Dull Black
+                        else SetBackgroundColor Dull White
           pieceColor = case piece of
                          Just p -> if pieceColor p == White
-                                   then SetColor Foreground Vivid Cyan
+                                   then SetColor Foreground Vivid Blue
                                    else SetColor Foreground Vivid Red
                          Nothing -> SetColor Foreground Dull Black
           pieceChar = case piece of
                         Just p -> showPiece p
                         Nothing -> " "
-      in setSGRCode [squareColor, pieceColor] ++ pie
+      in setSGRCode [squareColor, pieceColor] ++ pieceChar ++ " " ++ setSGRCode [Reset]

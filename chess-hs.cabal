@@ -27,7 +27,7 @@ executable chess-hs
                       mtl,
                       ansi-terminal,
                       optparse-applicative,
-                      haskell-gi-base,
+                      haskell-gi-base >=0.23 && <0.27,
                       gi-gtk >= 3.0 && < 4.0,
                       gi-gdk >= 3.0 && < 4.0,
                       gi-cairo >= 1.0 && < 2.0,

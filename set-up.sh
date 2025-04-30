@@ -1,3 +1,20 @@
+#!/usr/bin/env sh
+
+
+
+
+# Setup script for Chess-HS using Stack
+set -e  # Exit on error
+
+echo "Setting up Chess-HS with Stack"
+echo "============================="
+
+# Install stack if not present (uncomment if needed)
+# curl -sSL https://get.haskellstack.org/ | sh
+
+# Copy the fixed Board.hs file
+cp src/Chess/Board.hs src/Chess/Board.hs.bak || true
+cat > src/Chess/Board.hs << 'EOF'
 module Chess.Board
   ( Board
   , Position
@@ -99,3 +116,50 @@ showBoard board =
   where
     showSquare :: Position -> String
     showSquare pos = maybe "." showPiece (getPiece pos board)
+EOF
+
+# Install dependencies including GTK
+echo "Installing dependencies..."
+if command -v nix &> /dev/null; then
+  echo "Nix detected, installing system dependencies..."
+  nix-shell -p gtk3 gobject-introspection cairo pango glib --run "echo 'System dependencies installed.'"
+else
+  echo "Nix not found, please ensure GTK3 and related libraries are installed on your system."
+  echo "On Debian/Ubuntu: sudo apt-get install libgtk-3-dev libcairo2-dev libpango1.0-dev libglib2.0-dev"
+  echo "On Fedora: sudo dnf install gtk3-devel cairo-devel pango-devel glib2-devel"
+  echo "On Arch: sudo pacman -S gtk3 cairo pango glib2"
+fi
+
+# Build the project
+echo "Building with Stack..."
+if [[ "$1" == "--no-gtk" ]]; then
+  stack build --flag chess-hs:-enable-gtk
+else
+  stack build
+fi
+
+# Run the project if build succeeds
+if [ $? -eq 0 ]; then
+  echo
+  echo "Build successful!"
+  echo "Run with: stack exec chess-hs"
+  echo "For GTK interface: stack exec chess-hs -- --gtk"
+  echo
+
+  read -p "Run the chess game now? (y/n) " -n 1 -r
+  echo
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    if [[ "$1" == "--no-gtk" ]]; then
+      stack exec chess-hs
+    else
+      stack exec chess-hs -- --gtk
+    fi
+  fi
+else
+  echo
+  echo "Build failed. Check the errors above."
+  echo
+  echo "If you're having GTK-related issues, try running with --no-gtk:"
+  echo "  ./setup-stack.sh --no-gtk"
+  exit 1
+fi
