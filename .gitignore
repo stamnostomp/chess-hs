@@ -46,3 +46,5 @@ hie.yaml
 
 # Generated files
 *.tix
+.lock
+/*.lock
