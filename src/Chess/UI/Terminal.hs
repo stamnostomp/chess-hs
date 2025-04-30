@@ -1,8 +1,7 @@
 module Chess.UI.Terminal (run) where
 
 import Control.Monad (when)
-import System.Console.ANSI hiding (White, Black) -- Hide ANSI colors to avoid conflict
-import qualified System.Console.ANSI as ANSI
+import System.Console.ANSI
 import System.IO
 import Data.Char (toLower, isDigit)
 import Data.Maybe (isJust, fromMaybe)
@@ -12,7 +11,7 @@ import Chess.Board
 import Chess.Game
 import Chess.GameState
 import Chess.Move
-import Chess.Pieces -- This defines our White and Black for piece colors
+import qualified Chess.Pieces as P -- Import qualified to avoid name clashes
 import Chess.Rules (isLegalMove)
 
 -- | Run the terminal UI
@@ -37,7 +36,7 @@ gameLoop game = do
   if isGameOver game
     then do
       putStrLn $ case gameStatus game of
-        Checkmate -> "Checkmate! " ++ show (fromMaybe (opponent (currentPlayer game)) (getWinner game)) ++ " wins!"
+        Checkmate -> "Checkmate! " ++ show (fromMaybe (P.opponent (currentPlayer game)) (getWinner game)) ++ " wins!"
         Stalemate -> "Stalemate! The game is a draw."
         _ -> "Game over."
     else do
@@ -108,14 +107,14 @@ showBoardWithColors board =
   where
     colorSquare pos piece =
       let squareColor = if (fst pos + snd pos) `mod` 2 == 0
-                        then SetBackgroundColor Dull ANSI.Black
-                        else SetBackgroundColor Dull ANSI.White
-          pieceColor = case piece of
-                         Just p -> if pieceColor p == White
-                                   then SetColor Foreground Vivid ANSI.Blue
-                                   else SetColor Foreground Vivid ANSI.Red
-                         Nothing -> SetColor Foreground Dull ANSI.Black
+                        then SetBackgroundColor Dull Black
+                        else SetBackgroundColor Dull White
+          textColor = case piece of
+                         Just p -> if P.pieceColor p == P.White
+                                   then SetColor Foreground Vivid Blue
+                                   else SetColor Foreground Vivid Red
+                         Nothing -> SetColor Foreground Dull Black
           pieceChar = case piece of
-                        Just p -> showPiece p
+                        Just p -> P.showPiece p
                         Nothing -> " "
-      in setSGRCode [squareColor, pieceColor] ++ pieceChar ++ " " ++ setSGRCode [Reset]
+      in setSGRCode [squareColor, textColor] ++ pieceChar ++ " " ++ setSGRCode [Reset]

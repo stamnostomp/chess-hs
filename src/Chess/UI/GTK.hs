@@ -4,7 +4,6 @@ import Control.Monad
 import Data.IORef
 import qualified Data.Map as Map
 import Data.Maybe (isJust, fromMaybe)
-import GI.Cairo.Render (setSourceRGB, rectangle, fill)
 import qualified GI.Cairo.Render as Cairo
 import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
@@ -112,38 +111,42 @@ pixelToBoard (x, y) =
 -- | Render the chess board
 renderBoard :: Gtk.DrawingContext -> Board -> Maybe Position -> IO ()
 renderBoard context board selected = do
-  Cairo.renderWithContext context $ do
-    -- Draw the squares
-    forM_ [0..7] $ \rank -> do
-      forM_ [0..7] $ \file -> do
-        let isLight = (file + rank) `mod` 2 == 0
-            isSelected = selected == Just (file, rank)
-            color = if isSelected
-                    then (0.9, 0.9, 0.5)
-                    else if isLight
-                         then (0.9, 0.9, 0.7)
-                         else (0.5, 0.3, 0.1)
+  -- Get the Cairo context from Gtk's DrawingContext
+  cr <- Gtk.getDrawContextCr context
 
-        setSourceRGB (fst3 color) (snd3 color) (thd3 color)
-        rectangle (fromIntegral $ file * 50)
-                  (fromIntegral $ (7 - rank) * 50)
-                  (fromIntegral 50)
-                  (fromIntegral 50)
-        fill
+  -- Draw the squares
+  forM_ [0..7] $ \rank -> do
+    forM_ [0..7] $ \file -> do
+      let isLight = (file + rank) `mod` 2 == 0
+          isSelected = selected == Just (file, rank)
+          color = if isSelected
+                  then (0.9, 0.9, 0.5)
+                  else if isLight
+                       then (0.9, 0.9, 0.7)
+                       else (0.5, 0.3, 0.1)
 
-    -- Draw the pieces
-    forM_ (Map.toList board) $ \((file, rank), piece) -> do
-      let x = fromIntegral $ file * 50 + 25
-          y = fromIntegral $ (7 - rank) * 50 + 25
-          pieceText = showPiece piece
+      Cairo.renderWithContext cr $ do
+        Cairo.setSourceRGB (fst3 color) (snd3 color) (thd3 color)
+        Cairo.rectangle (fromIntegral $ file * 50)
+                (fromIntegral $ (7 - rank) * 50)
+                (fromIntegral 50)
+                (fromIntegral 50)
+        Cairo.fill
 
+  -- Draw the pieces
+  forM_ (Map.toList board) $ \((file, rank), piece) -> do
+    let x = fromIntegral $ file * 50 + 25
+        y = fromIntegral $ (7 - rank) * 50 + 25
+        pieceText = showPiece piece
+
+    Cairo.renderWithContext cr $ do
       Cairo.save
       Cairo.translate x y
 
       -- Set color based on piece color
       case pieceColor piece of
-        White -> setSourceRGB 1.0 1.0 1.0
-        Black -> setSourceRGB 0.0 0.0 0.0
+        White -> Cairo.setSourceRGB 1.0 1.0 1.0
+        Black -> Cairo.setSourceRGB 0.0 0.0 0.0
 
       -- Draw piece using Cairo
       Cairo.moveTo (-15) 15
