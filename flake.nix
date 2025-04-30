@@ -1,5 +1,5 @@
 {
-  description = "chess-hs: A terminal-based chess game in Haskell with GTK interface";
+  description = "chess-hs: A chess game in Haskell with GTK interface";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -17,51 +17,49 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
 
-        # Haskell package with dependencies
-        haskellPackages = pkgs.haskellPackages.override {
-          overrides = hself: hsuper: {
-            # You can add Haskell package overrides here if needed
-          };
-        };
-
-        # Project dependencies
-        packageDeps = with pkgs; [
-          # GTK dependencies
-          gtk3
-          gtksourceview4
-          gobject-introspection
-          glib
-          cairo
-          pango
-          gdk-pixbuf
-
-          # Build tools
-          pkg-config
-          cabal-install
-          ghc
-        ];
-
-        # Development shell packages
-        devPackages = with pkgs; [
-          haskell-language-server
-          hlint
-          haskellPackages.cabal-fmt
-          haskellPackages.ghcid
-          haskellPackages.implicit-hie
-        ];
-
+        # Create a Haskell environment
+        myHaskellPackages = pkgs.haskellPackages;
       in
       {
-        packages.default = haskellPackages.callCabal2nix "chess-hs" ./. { };
-
         devShells.default = pkgs.mkShell {
-          buildInputs = packageDeps ++ devPackages;
+          buildInputs = with pkgs; [
+            # Haskell development
+            myHaskellPackages.ghc
+            cabal-install
 
-          # Environment variables
+            # System tools
+            pkg-config
+
+            # GTK and dependencies
+            gtk3
+            glib
+            gobject-introspection
+            pango
+            cairo
+
+            # Development tools
+            haskell-language-server
+          ];
+
+          # Shell hook with environment variables
           shellHook = ''
             echo "Haskell Chess GTK Development Shell"
-            export GI_TYPELIB_PATH=${pkgs.gtk3}/lib/girepository-1.0:${pkgs.gtksourceview4}/lib/girepository-1.0:${pkgs.gdk-pixbuf}/lib/girepository-1.0:${pkgs.pango.out}/lib/girepository-1.0
-            export XDG_DATA_DIRS=${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${pkgs.gsettings-desktop-schemas.name}:${pkgs.gtk3}/share/gsettings-schemas/${pkgs.gtk3.name}:$XDG_DATA_DIRS
+
+            # Make pkg-config find the GTK libraries
+            export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:${pkgs.gtk3.dev}/lib/pkgconfig"
+            export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:${pkgs.glib.dev}/lib/pkgconfig"
+            export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:${pkgs.pango.dev}/lib/pkgconfig"
+            export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:${pkgs.cairo.dev}/lib/pkgconfig"
+
+            # Set GI repository path
+            export GI_TYPELIB_PATH="$GI_TYPELIB_PATH:${pkgs.gtk3}/lib/girepository-1.0"
+            export GI_TYPELIB_PATH="$GI_TYPELIB_PATH:${pkgs.glib}/lib/girepository-1.0"
+            export GI_TYPELIB_PATH="$GI_TYPELIB_PATH:${pkgs.pango}/lib/girepository-1.0"
+            export GI_TYPELIB_PATH="$GI_TYPELIB_PATH:${pkgs.cairo}/lib/girepository-1.0"
+
+            # Set XDG_DATA_DIRS for themes and schemas
+            export XDG_DATA_DIRS="$XDG_DATA_DIRS:${pkgs.gtk3}/share"
+            export XDG_DATA_DIRS="$XDG_DATA_DIRS:${pkgs.gsettings-desktop-schemas}/share"
           '';
         };
       }

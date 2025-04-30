@@ -1,0 +1,48 @@
+.DS_Store
+.idea
+*.log
+tmp/
+# Haskell
+dist
+dist-*
+cabal-dev
+*.o
+*.hi
+*.hie
+*.chi
+*.chs.h
+*.dyn_o
+*.dyn_hi
+.hpc
+.hsenv
+.cabal-sandbox/
+cabal.sandbox.config
+*.prof
+*.aux
+*.hp
+*.eventlog
+.stack-work/
+cabal.project.local
+cabal.project.local~
+.HTF/
+.ghc.environment.*
+
+# Nix
+result
+result-*
+.direnv/
+
+# Editor files
+*~
+*.swp
+.*.swp
+.vscode/
+.idea/
+
+# Build artifacts
+/dist-newstyle/
+.ghc.environment.*
+hie.yaml
+
+# Generated files
+*.tix

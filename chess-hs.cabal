@@ -1,8 +1,7 @@
 cabal-version:      3.0
 name:               chess-hs
 version:            0.1.0.0
-synopsis:           Chess game in Haskell with GTK interface
-description:        A chess game with both terminal and GTK graphical interfaces
+synopsis:           Chess game in Haskell
 license:            MIT
 license-file:       LICENSE
 author:             stamno
@@ -11,58 +10,16 @@ category:           Game
 build-type:         Simple
 extra-doc-files:    CHANGELOG.md
 
-common warnings
-    ghc-options: -Wall
-
-library
-    import:           warnings
-    exposed-modules:  Chess.Board
-                    , Chess.Pieces
-                    , Chess.Game
-                    , Chess.Move
-                    , Chess.Rules
-                    , Chess.UI.Common
-                    , Chess.UI.Terminal
-                    , Chess.UI.GTK
-    build-depends:    base ^>=4.16.4.0
-                    , containers >= 0.6
-                    , mtl >= 2.2
-                    , text >= 1.2
-                    -- GTK dependencies
-                    , gi-gtk >= 3.0
-                    , gi-gdk >= 3.0
-                    , gi-cairo >= 1.0
-                    , gi-pango >= 1.0
-                    , gi-glib >= 2.0
-                    , haskell-gi-base >= 0.24
-                    , cairo >= 0.13
-                    -- UI related
-                    , ansi-terminal >= 0.11
-    hs-source-dirs:   src
-    default-language: Haskell2010
-
 executable chess-hs
-    import:           warnings
     main-is:          Main.hs
-    other-modules:    Paths_chess_hs
-    build-depends:    base ^>=4.16.4.0
-                    , chess-hs
-                    , optparse-applicative >= 0.16
+    -- other-modules:
+    build-depends:    base >=4.16.4.0 && <5,
+                      containers,
+                      text,
+                      mtl,
+                      ansi-terminal,
+                      optparse-applicative,
+                      haskell-gi-base
     hs-source-dirs:   app
     default-language: Haskell2010
-    ghc-options:      -threaded -rtsopts -with-rtsopts=-N
-
-test-suite chess-hs-test
-    import:           warnings
-    type:             exitcode-stdio-1.0
-    main-is:          Spec.hs
-    other-modules:    Chess.BoardSpec
-                    , Chess.GameSpec
-                    , Chess.MoveSpec
-    build-depends:    base ^>=4.16.4.0
-                    , chess-hs
-                    , hspec >= 2.7
-                    , QuickCheck >= 2.14
-    hs-source-dirs:   test
-    default-language: Haskell2010
-    ghc-options:      -threaded -rtsopts -with-rtsopts=-N
+    ghc-options:      -Wall
