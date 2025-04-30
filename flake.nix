@@ -15,51 +15,70 @@
     flake-utils.lib.eachDefaultSystem (
       system:
       let
-        pkgs = nixpkgs.legacyPackages.${system};
+        pkgs = import nixpkgs { inherit system; };
 
-        # Create a Haskell environment
-        myHaskellPackages = pkgs.haskellPackages;
+        # Use Haskell's own methods for adding dependencies
+        hlib = pkgs.haskell.lib;
+
+        # Define GTK system dependencies
+        gtkDeps = with pkgs; [
+          gtk3
+          glib
+          cairo
+          pango
+        ];
+
+        # Customizing the Haskell package set
+        myHaskellPackages = pkgs.haskellPackages.override {
+          overrides = hself: hsuper: {
+            # Make chess-hs depend on our system dependencies
+            chess-hs = hlib.compose.overrideCabal (drv: {
+              librarySystemDepends = (drv.librarySystemDepends or [ ]) ++ gtkDeps;
+              libraryPkgconfigDepends = (drv.libraryPkgconfigDepends or [ ]) ++ gtkDeps;
+              executableSystemDepends = (drv.executableSystemDepends or [ ]) ++ gtkDeps;
+              executablePkgconfigDepends = (drv.executablePkgconfigDepends or [ ]) ++ gtkDeps;
+              testSystemDepends = (drv.testSystemDepends or [ ]) ++ gtkDeps;
+              testPkgconfigDepends = (drv.testPkgconfigDepends or [ ]) ++ gtkDeps;
+            }) (hsuper.callCabal2nix "chess-hs" ./. { });
+          };
+        };
       in
       {
+        packages = {
+          default = myHaskellPackages.chess-hs;
+          chess-hs = myHaskellPackages.chess-hs;
+        };
+
+        # Dev environment for building the project
         devShells.default = pkgs.mkShell {
+          # Packages needed for development
           buildInputs = with pkgs; [
-            # Haskell development
+            # Core dev tools
             myHaskellPackages.ghc
             cabal-install
-
-            # System tools
             pkg-config
 
-            # GTK and dependencies
+            # GTK dependencies
             gtk3
+            gtk3.dev
             glib
+            glib.dev
             gobject-introspection
-            pango
             cairo
-
-            # Development tools
-            haskell-language-server
+            cairo.dev
+            pango
+            pango.dev
           ];
 
-          # Shell hook with environment variables
+          # Environment variables for GTK development
           shellHook = ''
-            echo "Haskell Chess GTK Development Shell"
+            export PKG_CONFIG_PATH="${pkgs.lib.makeSearchPath "lib/pkgconfig" gtkDeps}:$PKG_CONFIG_PATH"
+            export GI_TYPELIB_PATH="${pkgs.lib.makeSearchPath "lib/girepository-1.0" gtkDeps}:$GI_TYPELIB_PATH"
+            export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath gtkDeps}:$LD_LIBRARY_PATH"
+            export XDG_DATA_DIRS="${pkgs.gsettings-desktop-schemas}/share:${pkgs.gtk3}/share:$XDG_DATA_DIRS"
 
-            # Make pkg-config find the GTK libraries
-            export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:${pkgs.gtk3.dev}/lib/pkgconfig"
-            export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:${pkgs.glib.dev}/lib/pkgconfig"
-            export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:${pkgs.pango.dev}/lib/pkgconfig"
-            export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:${pkgs.cairo.dev}/lib/pkgconfig"
-
-            # Set GI repository path
-            export GI_TYPELIB_PATH="$GI_TYPELIB_PATH:${pkgs.gtk3}/lib/girepository-1.0"
-            export GI_TYPELIB_PATH="$GI_TYPELIB_PATH:${pkgs.glib}/lib/girepository-1.0"
-            export GI_TYPELIB_PATH="$GI_TYPELIB_PATH:${pkgs.pango}/lib/girepository-1.0"
-            export GI_TYPELIB_PATH="$GI_TYPELIB_PATH:${pkgs.cairo}/lib/girepository-1.0"
-
-            # Set XDG_DATA_DIRS for themes and schemas
-            export XDG_DATA_DIRS="$XDG_DATA_DIRS:${pkgs.gtk3}/share"
-            export XDG_DATA_DIRS="$XDG_DATA_DIRS:${pkgs.gsettings-desktop-schemas}/share"
+            echo "Haskell Chess GTK Development Environment"
+            echo "Remember to use 'cabal build' inside this shell"
           '';
         };
       }

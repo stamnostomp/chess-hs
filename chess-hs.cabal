@@ -12,14 +12,30 @@ extra-doc-files:    CHANGELOG.md
 
 executable chess-hs
     main-is:          Main.hs
-    -- other-modules:
+    other-modules:    Chess.Board
+                    , Chess.Game
+                    , Chess.Move
+                    , Chess.Pieces
+                    , Chess.Rules
+                    , Chess.UI.Common
+                    , Chess.UI.Terminal
+                    , Chess.UI.GTK
+
     build-depends:    base >=4.16.4.0 && <5,
                       containers,
                       text,
                       mtl,
                       ansi-terminal,
                       optparse-applicative,
-                      haskell-gi-base
+                      haskell-gi-base,
+                      gi-gtk >= 3.0 && < 4.0,
+                      gi-gdk >= 3.0 && < 4.0,
+                      gi-cairo >= 1.0 && < 2.0,
+                      gi-pango >= 1.0 && < 2.0,
+                      gi-cairo-render >= 0.1 && < 0.2
+
     hs-source-dirs:   app
+                    , src
+
     default-language: Haskell2010
     ghc-options:      -Wall
