@@ -44,8 +44,11 @@
               self.gi-gtk
               self.gi-gdk
               self.gi-cairo
-              self.gi-pango
               self.gi-cairo-render
+              self.gi-cairo-connector # Add the connector package
+              self.gi-pango
+              self.cairo # Add the traditional cairo package
+              self.transformers # Add transformers for Control.Monad.Trans.Reader
             ];
           }
         );
@@ -82,8 +85,11 @@
             haskellPackages.gi-gtk
             haskellPackages.gi-gdk
             haskellPackages.gi-cairo
-            haskellPackages.gi-pango
             haskellPackages.gi-cairo-render
+            haskellPackages.gi-cairo-connector
+            haskellPackages.gi-pango
+            haskellPackages.cairo
+            haskellPackages.transformers
           ];
 
           # Environment variables for GTK development

@@ -10,6 +10,11 @@ category:           Game
 build-type:         Simple
 extra-doc-files:    CHANGELOG.md
 
+flag enable-gtk
+  description: Enable GTK+ GUI
+  default:     True
+  manual:      True
+
 executable chess-hs
     main-is:          Main.hs
     other-modules:    Chess.Board
@@ -20,6 +25,7 @@ executable chess-hs
                     , Chess.UI.Common
                     , Chess.UI.Terminal
                     , Chess.UI.GTK
+                    , Chess.GameState
 
     build-depends:    base >=4.16.4.0 && <5,
                       containers,
@@ -27,12 +33,19 @@ executable chess-hs
                       mtl,
                       ansi-terminal,
                       optparse-applicative,
-                      haskell-gi-base >=0.23 && <0.27,
-                      gi-gtk >= 3.0 && < 4.0,
+                      haskell-gi-base >=0.23 && <0.27
+
+    if flag(enable-gtk)
+      build-depends:  gi-gtk >= 3.0 && < 4.0,
                       gi-gdk >= 3.0 && < 4.0,
                       gi-cairo >= 1.0 && < 2.0,
+                      gi-cairo-render >= 0.1 && < 0.2,
+                      gi-cairo-connector >= 0.1 && < 0.2,
                       gi-pango >= 1.0 && < 2.0,
-                      gi-cairo-render >= 0.1 && < 0.2
+                      cairo >= 0.13 && < 0.14,
+                      transformers >= 0.5
+
+      cpp-options:    -DENABLE_GTK
 
     hs-source-dirs:   app
                     , src

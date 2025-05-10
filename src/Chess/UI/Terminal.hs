@@ -107,8 +107,8 @@ showBoardWithColors board =
   where
     colorSquare pos piece =
       let squareColor = if (fst pos + snd pos) `mod` 2 == 0
-                        then SetBackgroundColor Dull Black
-                        else SetBackgroundColor Dull White
+                        then SetColor Background Dull Black
+                        else SetColor Background Dull White
           textColor = case piece of
                          Just p -> if P.pieceColor p == P.White
                                    then SetColor Foreground Vivid Blue

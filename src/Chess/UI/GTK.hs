@@ -4,11 +4,19 @@ import Control.Monad
 import Data.IORef
 import qualified Data.Map as Map
 import Data.Maybe (isJust, fromMaybe)
-import qualified GI.Cairo.Render as Cairo
+import qualified GI.Cairo as Cairo
 import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
 import Data.Text (Text, pack)
 import qualified GI.Pango as Pango
+
+-- Import Cairo with qualified name to avoid name conflicts
+import qualified Graphics.Rendering.Cairo as C
+import Graphics.Rendering.Cairo.Internal (Render(runRender))
+import Graphics.Rendering.Cairo.Types (Cairo(Cairo))
+import Foreign.Ptr (castPtr)
+import Control.Monad.Trans.Reader (runReaderT)
+import Data.GI.Base.ManagedPtr (withManagedPtr)
 
 import Chess.Board
 import Chess.Game
@@ -40,11 +48,11 @@ run = do
   Gtk.onWidgetDraw drawingArea $ \context -> do
     game <- readIORef gameState
     selected <- readIORef selectedPos
-    renderBoard context (gameBoard game) selected
+    renderWithContext (drawBoard (gameBoard game) selected) context
     return True
 
   -- Handle mouse clicks
-  Gtk.addEvents drawingArea [Gdk.EventMaskButtonPressMask]
+  Gtk.widgetAddEvents drawingArea [Gdk.EventMaskButtonPressMask]
   Gtk.onWidgetButtonPressEvent drawingArea $ \event -> do
     -- Get click position
     x <- Gdk.getEventButtonX event
@@ -100,6 +108,13 @@ run = do
   -- Start main loop
   Gtk.main
 
+-- | This function bridges gi-cairo with the hand-written cairo package
+renderWithContext :: Render () -> Cairo.Context -> IO Bool
+renderWithContext r context = do
+  withManagedPtr context $ \p ->
+    runReaderT (runRender r) (Cairo (castPtr p))
+  return True
+
 -- | Convert pixel coordinates to board position
 pixelToBoard :: (Double, Double) -> Position
 pixelToBoard (x, y) =
@@ -108,12 +123,9 @@ pixelToBoard (x, y) =
       rank = 7 - floor (y / squareSize)
   in (file, rank)
 
--- | Render the chess board
-renderBoard :: Gtk.DrawingContext -> Board -> Maybe Position -> IO ()
-renderBoard context board selected = do
-  -- Get the Cairo context from Gtk's DrawingContext
-  cr <- Gtk.getDrawContextCr context
-
+-- | Draw the chess board using Cairo
+drawBoard :: Board -> Maybe Position -> Render ()
+drawBoard board selected = do
   -- Draw the squares
   forM_ [0..7] $ \rank -> do
     forM_ [0..7] $ \file -> do
@@ -125,13 +137,13 @@ renderBoard context board selected = do
                        then (0.9, 0.9, 0.7)
                        else (0.5, 0.3, 0.1)
 
-      Cairo.renderWithContext cr $ do
-        Cairo.setSourceRGB (fst3 color) (snd3 color) (thd3 color)
-        Cairo.rectangle (fromIntegral $ file * 50)
+      -- Draw a square at this position
+      C.setSourceRGB (fst3 color) (snd3 color) (thd3 color)
+      C.rectangle (fromIntegral $ file * 50)
                 (fromIntegral $ (7 - rank) * 50)
                 (fromIntegral 50)
                 (fromIntegral 50)
-        Cairo.fill
+      C.fill
 
   -- Draw the pieces
   forM_ (Map.toList board) $ \((file, rank), piece) -> do
@@ -139,21 +151,21 @@ renderBoard context board selected = do
         y = fromIntegral $ (7 - rank) * 50 + 25
         pieceText = showPiece piece
 
-    Cairo.renderWithContext cr $ do
-      Cairo.save
-      Cairo.translate x y
+    -- Draw a piece at this position
+    C.save
+    C.translate x y
 
-      -- Set color based on piece color
-      case pieceColor piece of
-        White -> Cairo.setSourceRGB 1.0 1.0 1.0
-        Black -> Cairo.setSourceRGB 0.0 0.0 0.0
+    -- Set color based on piece color
+    case pieceColor piece of
+      White -> C.setSourceRGB 1.0 1.0 1.0
+      Black -> C.setSourceRGB 0.0 0.0 0.0
 
-      -- Draw piece using Cairo
-      Cairo.moveTo (-15) 15
-      Cairo.setFontSize 32
-      Cairo.showText (pack pieceText)
+    -- Draw piece using Cairo
+    C.moveTo (-15) 15
+    C.setFontSize 32
+    C.showText (pack pieceText)
 
-      Cairo.restore
+    C.restore
 
 -- | Helper functions for triple access
 fst3 :: (a, b, c) -> a
