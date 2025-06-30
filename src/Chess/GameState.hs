@@ -3,6 +3,7 @@ module Chess.GameState
   , GameStatus(..)
   , currentPlayer
   , getWinner
+  , gameTurn
   ) where
 
 import Chess.Board

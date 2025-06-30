@@ -23,7 +23,7 @@ import Chess.Game
 import Chess.GameState
 import Chess.Move
 import Chess.Pieces
-import Chess.Rules (isLegalMove)
+import Chess.Rules (isLegalMove, getValidMoves)
 
 -- | Run the GTK UI
 run :: IO ()
@@ -43,12 +43,16 @@ run = do
   -- Create game state
   gameState <- newIORef initialGameState
   selectedPos <- newIORef Nothing
+  legalMoves <- newIORef []
+  warningFlash <- newIORef (0, 0, 0, 0) -- RGBA
 
   -- Handle drawing
   Gtk.onWidgetDraw drawingArea $ \context -> do
     game <- readIORef gameState
     selected <- readIORef selectedPos
-    renderWithContext (drawBoard (gameBoard game) selected) context
+    moves <- readIORef legalMoves
+    flash <- readIORef warningFlash
+    renderWithContext (drawBoard (gameBoard game) selected moves flash) context
     return True
 
   -- Handle mouse clicks
@@ -71,14 +75,18 @@ run = do
         Nothing -> do
           let piece = getPiece boardPos (gameBoard game)
           case piece of
-            Just p | pieceColor p == currentPlayer game -> do
+            Just p | pieceColor p == gameTurn game -> do
               writeIORef selectedPos (Just boardPos)
+              let moves = getValidMoves game boardPos
+              writeIORef legalMoves moves
             _ -> return ()
 
         -- Piece already selected, try to move it
         Just fromPos -> do
           if fromPos == boardPos
-            then writeIORef selectedPos Nothing  -- Deselect
+            then do
+              writeIORef selectedPos Nothing  -- Deselect
+              writeIORef legalMoves []
             else do
               let move = Move fromPos boardPos Normal
               if isLegalMove move game
@@ -86,13 +94,17 @@ run = do
                   let newGame = makeMove move game
                   writeIORef gameState newGame
                   writeIORef selectedPos Nothing
+                  writeIORef legalMoves []
                 else do
                   -- If clicked on own piece, select that instead
                   let piece = getPiece boardPos (gameBoard game)
                   case piece of
-                    Just p | pieceColor p == currentPlayer game ->
+                    Just p | pieceColor p == gameTurn game -> do
                       writeIORef selectedPos (Just boardPos)
-                    _ -> return ()
+                      let moves = getValidMoves game boardPos
+                      writeIORef legalMoves moves
+                    _ -> do
+                      writeIORef warningFlash (1, 0, 0, 0.5) -- Red flash
 
       Gtk.widgetQueueDraw drawingArea
 
@@ -124,18 +136,22 @@ pixelToBoard (x, y) =
   in (file, rank)
 
 -- | Draw the chess board using Cairo
-drawBoard :: Board -> Maybe Position -> Render ()
-drawBoard board selected = do
+drawBoard :: Board -> Maybe Position -> [Position] -> (Double, Double, Double, Double) -> Render ()
+drawBoard board selected legalMoves (r, g, b, a) = do
   -- Draw the squares
   forM_ [0..7] $ \rank -> do
     forM_ [0..7] $ \file -> do
-      let isLight = (file + rank) `mod` 2 == 0
-          isSelected = selected == Just (file, rank)
+      let pos = (file, rank)
+          isLight = (file + rank) `mod` 2 == 0
+          isSelected = selected == Just pos
+          isLegal = pos `elem` legalMoves
           color = if isSelected
                   then (0.9, 0.9, 0.5)
-                  else if isLight
-                       then (0.9, 0.9, 0.7)
-                       else (0.5, 0.3, 0.1)
+                  else if isLegal
+                       then (0.5, 0.9, 0.5)
+                       else if isLight
+                            then (0.9, 0.9, 0.7)
+                            else (0.5, 0.3, 0.1)
 
       -- Draw a square at this position
       C.setSourceRGB (fst3 color) (snd3 color) (thd3 color)
@@ -166,6 +182,10 @@ drawBoard board selected = do
     C.showText (pack pieceText)
 
     C.restore
+
+  -- Draw warning flash
+  C.setSourceRGBA r g b a
+  C.paint
 
 -- | Helper functions for triple access
 fst3 :: (a, b, c) -> a

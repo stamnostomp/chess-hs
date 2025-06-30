@@ -3,9 +3,8 @@ module Chess.UI.Terminal (run) where
 import Control.Monad (when)
 import System.Console.ANSI
 import System.IO
-import Data.Char (toLower, isDigit)
-import Data.Maybe (isJust, fromMaybe)
-import qualified Data.Map as Map
+import Data.Char (toLower)
+import Data.Maybe (fromMaybe)
 
 import Chess.Board
 import Chess.Game
@@ -36,12 +35,12 @@ gameLoop game = do
   if isGameOver game
     then do
       putStrLn $ case gameStatus game of
-        Checkmate -> "Checkmate! " ++ show (fromMaybe (P.opponent (currentPlayer game)) (getWinner game)) ++ " wins!"
+        Checkmate -> "Checkmate! " ++ show (fromMaybe (P.opponent (gameTurn game)) (getWinner game)) ++ " wins!"
         Stalemate -> "Stalemate! The game is a draw."
         _ -> "Game over."
     else do
       -- Get the player's move
-      putStr $ "\n" ++ show (currentPlayer game) ++ "'s move: "
+      putStr $ "\n" ++ show (gameTurn game) ++ "'s move: "
       input <- getLine
 
       case parseMove input of
@@ -61,7 +60,7 @@ displayGame game = do
   clearScreen
   setCursorPosition 0 0
 
-  putStrLn $ "Turn: " ++ show (currentPlayer game) ++
+  putStrLn $ "Turn: " ++ show (gameTurn game) ++
              case gameStatus game of
                InProgress -> ""
                Check -> " (Check)"
