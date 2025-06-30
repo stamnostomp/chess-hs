@@ -8,11 +8,14 @@ module Chess.Board
   , movePiece
   , isValidPosition
   , showBoard
+  , findKing
+  , getPiecesByColor
   ) where
 
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Chess.Pieces
+import Data.Maybe (listToMaybe)
 
 -- | A position on the chess board represented as (file, rank)
 -- where file is a-h (0-7) and rank is 1-8 (0-7)
@@ -99,3 +102,13 @@ showBoard board =
   where
     showSquare :: Position -> String
     showSquare pos = maybe "." showPiece (getPiece pos board)
+
+-- | Find the king of a specific color
+findKing :: Board -> Color -> Maybe Position
+findKing board color =
+  let isKing (pos, piece) = pieceType piece == King && pieceColor piece == color
+  in fmap fst (listToMaybe (filter isKing (Map.toList board)))
+
+-- | Get all pieces of a specific color
+getPiecesByColor :: Board -> Color -> Map.Map Position Piece
+getPiecesByColor board color = Map.filter (\p -> pieceColor p == color) board

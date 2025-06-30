@@ -4,9 +4,9 @@ module Chess.Rules
   , isAttacked
   ) where
 
-import Chess.Board
+import Chess.Board (Board, Position, getPiece, isValidPosition, findKing, getPiecesByColor)
 import Chess.Pieces
-import Chess.Move
+import Chess.Move (Move(..), MoveType(..), makeMoveOnBoard)
 import Chess.GameState
 import Data.Maybe (isJust, fromMaybe)
 import qualified Data.Map as Map
@@ -25,24 +25,26 @@ getValidMoves game pos =
 
 -- | Check if a move is legal
 isLegalMove :: Move -> GameState -> Bool
-isLegalMove (Move from to _) game =
-  -- Check if positions are valid
-  isValidPosition from && isValidPosition to &&
-
-  -- Check if there is a piece at the source position
-  isJust (getPiece from (gameBoard game)) &&
-
-  -- Check if the piece belongs to the current player
-  let piece = fromMaybe (error "No piece at source position") (getPiece from (gameBoard game))
-  in pieceColor piece == gameTurn game &&
-
-  -- For this simplified version, we'll allow any move to a valid position
-  -- owned by the current player
-  case getPiece to (gameBoard game) of
-    -- Can't capture own piece
-    Just targetPiece | pieceColor targetPiece == gameTurn game -> False
-    -- Otherwise, allow move
-    _ -> True
+isLegalMove move@(Move from to _) game =
+  case getPiece from (gameBoard game) of
+    Nothing -> False -- No piece to move
+    Just piece ->
+      -- Check if the piece belongs to the current player
+      (pieceColor piece == gameTurn game) &&
+      -- Check if the destination is valid for the piece type
+      (to `elem` getPossibleMoves (gameBoard game) from piece) &&
+      -- Check if the move is a capture of own piece
+      (case getPiece to (gameBoard game) of
+         Just targetPiece -> pieceColor targetPiece /= gameTurn game
+         Nothing -> True) &&
+      -- Check if the king is in check after the move
+      (let
+         -- Create a temporary board to see the result of the move
+         tempBoard = makeMoveOnBoard move (gameBoard game)
+         -- Find the king's position on the temporary board
+         kingPos = fromMaybe (error "King not found!") (findKing tempBoard (gameTurn game))
+         -- Check if the king is attacked on the temporary board
+       in not (isAttacked tempBoard kingPos (opponent (gameTurn game))))
 
 -- | Get possible moves based on piece type
 getPossibleMoves :: Board -> Position -> Piece -> [Position]
@@ -128,6 +130,20 @@ getMovesInDirection board (file, rank) color (df, dr) =
                  then [next]  -- Can capture opponent's piece
                  else []      -- Blocked by own piece
 
--- | Check if a position is attacked by a specific color (simplified)
+-- | Check if a position is attacked by a specific color
 isAttacked :: Board -> Position -> Color -> Bool
-isAttacked board pos attackerColor = False  -- Simplified for now
+isAttacked board pos attackerColor =
+  any (isAttacking pos) (Map.keys (getPiecesByColor board attackerColor))
+
+  where
+    -- Check if a piece at a given position is attacking the target position
+    isAttacking :: Position -> Position -> Bool
+    isAttacking targetPos piecePos =
+      case getPiece piecePos board of
+        Nothing -> False
+        Just piece ->
+          let
+            -- Get possible moves for the attacking piece
+            moves = getPossibleMoves board piecePos piece
+            -- Check if the target position is in the list of possible moves
+          in targetPos `elem` moves

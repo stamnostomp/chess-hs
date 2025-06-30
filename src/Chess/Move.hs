@@ -2,7 +2,7 @@ module Chess.Move
   ( Move(..)
   , MoveType(..)
   , executeMove
-  -- Remove isLegalMove from exports
+  , makeMoveOnBoard
   ) where
 
 import Chess.Board
@@ -63,5 +63,11 @@ executeMove (Move from to moveType) board =
           promotedPiece = Piece (pieceColor piece) newType
       in setPiece to promotedPiece $ Map.delete from board
 
--- Remove the isLegalMove and isAttacked functions from this module
--- They are implemented in Chess.Rules
+-- | Make a move on the board (without validation)
+makeMoveOnBoard :: Move -> Board -> Board
+makeMoveOnBoard (Move from to _) board =
+  case getPiece from board of
+    Nothing -> board
+    Just piece ->
+      let boardAfterMove = Map.delete from (Map.insert to piece board)
+      in boardAfterMove

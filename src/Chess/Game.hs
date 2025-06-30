@@ -4,9 +4,6 @@ module Chess.Game
   , makeMove
   , isGameOver
   , isInCheck
-  , allPositions
-  , boardPieces  -- Export the new functions
-  , findKing
   ) where
 
 import Chess.Board
@@ -24,16 +21,6 @@ allPositions = [(file, rank) | file <- [0..7], rank <- [0..7]]
 -- | Get all pieces on the board with their positions
 boardPieces :: Board -> [(Position, Piece)]
 boardPieces = Map.toList
-
--- | Find the king of a specific color on the board
-findKing :: Board -> Color -> Maybe Position
-findKing board color =
-  let kingPositions = [pos | (pos, piece) <- boardPieces board,
-                             pieceColor piece == color &&
-                             pieceType piece == King]
-  in case kingPositions of
-       [] -> Nothing      -- King not found (shouldn't happen in a valid game)
-       (pos:_) -> Just pos  -- Return the first (and only) king position
 
 -- | Initial game state
 initialGameState :: GameState
