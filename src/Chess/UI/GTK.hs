@@ -146,15 +146,15 @@ drawBoard board selected legalMoves (r, g, b, a) = do
           isSelected = selected == Just pos
           isLegal = pos `elem` legalMoves
           color = if isSelected
-                  then (0.9, 0.9, 0.5)
+                  then (0.9, 0.9, 0.5, 1.0)
                   else if isLegal
-                       then (0.5, 0.9, 0.5)
+                       then (0.5, 0.9, 0.5, 0.5) -- Transparent green
                        else if isLight
-                            then (0.9, 0.9, 0.7)
-                            else (0.5, 0.3, 0.1)
+                            then (0.9, 0.9, 0.7, 1.0)
+                            else (0.5, 0.3, 0.1, 1.0)
 
       -- Draw a square at this position
-      C.setSourceRGB (fst3 color) (snd3 color) (thd3 color)
+      C.setSourceRGBA (fst4 color) (snd4 color) (thd4 color) (frth4 color)
       C.rectangle (fromIntegral $ file * 50)
                 (fromIntegral $ (7 - rank) * 50)
                 (fromIntegral 50)
@@ -180,6 +180,7 @@ drawBoard board selected legalMoves (r, g, b, a) = do
     C.moveTo (-15) 15
     C.setFontSize 32
     C.showText (pack pieceText)
+    C.fill -- Fill the text to make it solid
 
     C.restore
 
@@ -196,3 +197,16 @@ snd3 (_, b, _) = b
 
 thd3 :: (a, b, c) -> c
 thd3 (_, _, c) = c
+
+-- | Helper functions for quadruple access
+fst4 :: (a, b, c, d) -> a
+fst4 (a, _, _, _) = a
+
+snd4 :: (a, b, c, d) -> b
+snd4 (_, b, _, _) = b
+
+thd4 :: (a, b, c, d) -> c
+thd4 (_, _, c, _) = c
+
+frth4 :: (a, b, c, d) -> d
+frth4 (_, _, _, d) = d
