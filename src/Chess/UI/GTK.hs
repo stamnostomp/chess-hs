@@ -7,6 +7,8 @@ import Data.Maybe (isJust, fromMaybe)
 import qualified GI.Cairo as Cairo
 import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
+import qualified GI.GLib as GLib
+import Data.GI.Base
 import Data.Text (Text, pack)
 import qualified GI.Pango as Pango
 
@@ -28,13 +30,12 @@ import Chess.Rules (isLegalMove, getValidMoves)
 -- | Run the GTK UI
 run :: IO ()
 run = do
-  Gtk.init Nothing
+  Gtk.init
 
   -- Create window
-  window <- Gtk.windowNew Gtk.WindowTypeToplevel
-  Gtk.windowSetTitle window (pack "Chess")
+  window <- Gtk.windowNew
+  Gtk.windowSetTitle window (Just (pack "Chess"))
   Gtk.windowSetDefaultSize window 400 400
-  Gtk.windowSetPosition window Gtk.WindowPositionCenter
 
   -- Create drawing area
   drawingArea <- Gtk.drawingAreaNew
@@ -47,20 +48,18 @@ run = do
   warningFlash <- newIORef (0, 0, 0, 0) -- RGBA
 
   -- Handle drawing
-  Gtk.onWidgetDraw drawingArea $ \context -> do
+  Gtk.drawingAreaSetDrawFunc drawingArea $ Just $ \_ context _ _ -> do
     game <- readIORef gameState
     selected <- readIORef selectedPos
     moves <- readIORef legalMoves
     flash <- readIORef warningFlash
     renderWithContext (drawBoard (gameBoard game) selected moves flash) context
-    return True
+    return ()
 
   -- Handle mouse clicks
-  Gtk.widgetAddEvents drawingArea [Gdk.EventMaskButtonPressMask]
-  Gtk.onWidgetButtonPressEvent drawingArea $ \event -> do
-    -- Get click position
-    x <- Gdk.getEventButtonX event
-    y <- Gdk.getEventButtonY event
+  gesture <- Gtk.gestureClickNew
+  Gtk.widgetAddController drawingArea gesture
+  Gtk.onGestureClickPressed gesture $ \_ x y -> do
 
     -- Convert to board coordinates
     let boardPos = pixelToBoard (x, y)
@@ -106,19 +105,21 @@ run = do
                     _ -> do
                       writeIORef warningFlash (1, 0, 0, 0.5) -- Red flash
 
-      Gtk.widgetQueueDraw drawingArea
-
-    return True
+    Gtk.widgetQueueDraw drawingArea
 
   -- Set up UI
-  Gtk.containerAdd window drawingArea
+  Gtk.windowSetChild window (Just drawingArea)
 
-  -- Show window
-  Gtk.widgetShowAll window
-  Gtk.onWidgetDestroy window Gtk.mainQuit
+  -- Create main loop
+  mainLoop <- GLib.mainLoopNew Nothing False
+
+  -- Show window and drawing area
+  Gtk.widgetShow drawingArea
+  Gtk.widgetShow window
+  Gtk.onWidgetDestroy window (GLib.mainLoopQuit mainLoop)
 
   -- Start main loop
-  Gtk.main
+  GLib.mainLoopRun mainLoop
 
 -- | This function bridges gi-cairo with the hand-written cairo package
 renderWithContext :: Render () -> Cairo.Context -> IO Bool
@@ -145,16 +146,16 @@ drawBoard board selected legalMoves (r, g, b, a) = do
           isLight = (file + rank) `mod` 2 == 0
           isSelected = selected == Just pos
           isLegal = pos `elem` legalMoves
-          color = if isSelected
-                  then (0.9, 0.9, 0.5)
-                  else if isLegal
-                       then (0.5, 0.9, 0.5)
-                       else if isLight
-                            then (0.9, 0.9, 0.7)
-                            else (0.5, 0.3, 0.1)
+          (r, g, b, a) = if isSelected
+                         then (0.9, 0.9, 0.5, 1.0)
+                         else if isLegal
+                              then (0.5, 0.9, 0.5, 0.5) -- Green with 50% alpha
+                              else if isLight
+                                   then (0.9, 0.9, 0.7, 1.0)
+                                   else (0.5, 0.3, 0.1, 1.0)
 
       -- Draw a square at this position
-      C.setSourceRGB (fst3 color) (snd3 color) (thd3 color)
+      C.setSourceRGBA r g b a
       C.rectangle (fromIntegral $ file * 50)
                 (fromIntegral $ (7 - rank) * 50)
                 (fromIntegral 50)
@@ -163,25 +164,33 @@ drawBoard board selected legalMoves (r, g, b, a) = do
 
   -- Draw the pieces
   forM_ (Map.toList board) $ \((file, rank), piece) -> do
-    let x = fromIntegral $ file * 50 + 25
-        y = fromIntegral $ (7 - rank) * 50 + 25
-        pieceText = showPiece piece
+    let pieceText = showPiece piece
+    C.setFontSize 40 -- Increased font size
+    extents <- C.textExtents (pack pieceText)
+    let textWidth = C.textExtentsWidth extents
+        textHeight = C.textExtentsHeight extents
+        x = fromIntegral file * 50 + 25 - textWidth / 2 - C.textExtentsXbearing extents
+        y = fromIntegral (7 - rank) * 50 + (50 + textHeight) / 2
 
     -- Draw a piece at this position
-    C.save
-    C.translate x y
-
-    -- Set color based on piece color
+    C.moveTo x y
     case pieceColor piece of
-      White -> C.setSourceRGB 1.0 1.0 1.0
-      Black -> C.setSourceRGB 0.0 0.0 0.0
-
-    -- Draw piece using Cairo
-    C.moveTo (-15) 15
-    C.setFontSize 32
-    C.showText (pack pieceText)
-
-    C.restore
+      White -> do
+        C.setSourceRGB 1.0 1.0 1.0 -- White fill
+        C.textPath (pack pieceText)
+        C.fill
+        C.setSourceRGB 0.0 0.0 0.0 -- Black outline
+        C.setLineWidth 1.5 -- Slightly thicker outline
+        C.textPath (pack pieceText)
+        C.stroke
+      Black -> do
+        C.setSourceRGB 0.0 0.0 0.0 -- Black fill
+        C.textPath (pack pieceText)
+        C.fill
+        C.setSourceRGB 1.0 1.0 1.0 -- White outline
+        C.setLineWidth 1.5 -- Slightly thicker outline
+        C.textPath (pack pieceText)
+        C.stroke
 
   -- Draw warning flash
   C.setSourceRGBA r g b a
