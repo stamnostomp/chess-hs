@@ -4,7 +4,7 @@ import Control.Monad (when)
 import System.Console.ANSI
 import System.IO
 import Data.Char (toLower)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, fromJust, isJust)
 
 import Chess.Board
 import Chess.Game
@@ -60,20 +60,28 @@ displayGame game = do
   clearScreen
   setCursorPosition 0 0
 
-  putStrLn $ "Turn: " ++ show (gameTurn game) ++
+  -- Get terminal width for centering
+  maybeSize <- getTerminalSize
+  let termWidth = maybe 80 snd maybeSize
+      boardWidth = 64  -- Width of the board display
+      padding = replicate (max 0 ((termWidth - boardWidth) `div` 2)) ' '
+
+  putStrLn $ padding ++ "Turn: " ++ show (gameTurn game) ++
              case gameStatus game of
                InProgress -> ""
-               Check -> " (Check)"
+               Check -> " (Check!)"
                _ -> " (Game over)"
 
-  putStrLn ""
-  putStrLn $ showBoardWithColors (gameBoard game)
+  putStr $ showBoardWithColors padding (gameBoard game)
 
   -- Show move history
   when (not (null (gameMoves game))) $ do
-    putStrLn "\nMove history:"
-    mapM_ (putStr . (++ " ")) (map show (reverse (gameMoves game)))
+    putStrLn $ padding ++ "Recent moves:"
+    putStr padding
+    mapM_ (putStr . (++ " ")) (take 10 (map show (reverse (gameMoves game))))
     putStrLn ""
+
+  putStrLn ""
 
 -- | Parse a move from string input (e.g., "e2e4")
 parseMove :: String -> Maybe Move
@@ -94,15 +102,19 @@ parseMove [src1, src2, dst1, dst2]
 parseMove _ = Nothing
 
 -- | Show the board with ANSI colors
-showBoardWithColors :: Board -> String
-showBoardWithColors board =
-  "  a b c d e f g h\n" ++
-  unlines [ show (8 - rank) ++ " " ++
-            concatMap (\file -> colorSquare (file, 7 - rank) (getPiece (file, 7 - rank) board)) [0..7] ++
-            " " ++ show (8 - rank)
-          | rank <- [0..7]
-          ] ++
-  "  a b c d e f g h"
+showBoardWithColors :: String -> Board -> String
+showBoardWithColors pad board =
+  "\n" ++ pad ++
+  "     a      b      c      d      e      f      g      h\n" ++
+  concatMap (\rank ->
+    -- Top line of square
+    pad ++ "   " ++ concatMap (\file -> colorSquare (file, 7 - rank) Nothing) [0..7] ++ "\n" ++
+    -- Middle line with piece
+    pad ++ show (8 - rank) ++ "  " ++ concatMap (\file -> colorSquare (file, 7 - rank) (getPiece (file, 7 - rank) board)) [0..7] ++ "  " ++ show (8 - rank) ++ "\n" ++
+    -- Bottom line of square
+    pad ++ "   " ++ concatMap (\file -> colorSquare (file, 7 - rank) Nothing) [0..7] ++ "\n"
+  ) [0..7] ++
+  pad ++ "     a      b      c      d      e      f      g      h\n"
   where
     colorSquare pos piece =
       let squareColor = if (fst pos + snd pos) `mod` 2 == 0
@@ -116,4 +128,4 @@ showBoardWithColors board =
           pieceChar = case piece of
                         Just p -> P.showPiece p
                         Nothing -> " "
-      in setSGRCode [squareColor, textColor] ++ pieceChar ++ " " ++ setSGRCode [Reset]
+      in setSGRCode [squareColor, textColor] ++ "   " ++ pieceChar ++ "   " ++ setSGRCode [Reset]
